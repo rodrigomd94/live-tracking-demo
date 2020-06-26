@@ -1,0 +1,233 @@
+<!DOCTYPE html>
+<html>
+
+<head>
+    <meta charset='utf-8' />
+    <title>France map demo</title>
+    <meta name='viewport' content='initial-scale=1,maximum-scale=1,user-scalable=no' />
+    <script src='https://api.tiles.mapbox.com/mapbox-gl-js/v1.0.0/mapbox-gl.js'></script>
+    <link href='https://api.tiles.mapbox.com/mapbox-gl-js/v1.0.0/mapbox-gl.css' rel='stylesheet' />
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jquery/3.3.1/jquery.min.js"></script>
+    <style>
+        body {
+            margin: 0;
+            padding: 0;
+        }
+
+        #map {
+            position: absolute;
+            top: 0;
+            bottom: 0;
+            width: 100%;
+        }
+
+        .person {
+            background-image: url('circle.png');
+            background-size: cover;
+            width: 50px;
+            height: 50px;
+            border-radius: 50%;
+            cursor: pointer;
+        }
+
+        .incident {
+            background-image: url('https://eventcrew.app/static/assets/img/accident_pin.png');
+            background-size: cover;
+            width: 50px;
+            height: 50px;
+            border-radius: 50%;
+            cursor: pointer;
+        }
+    </style>
+</head>
+
+<body>
+    <div id='map'></div>
+    <script>
+        mapboxgl.accessToken = 'pk.eyJ1Ijoicm9kcmlnb21kOTQiLCJhIjoiY2p3dXo4c3d4MDRiaDRhbGZ1bzZzZWNkeiJ9.yhTSiU1-SfWSsL_wFzYFAg'; // replace this with your access token
+        var map = new mapboxgl.Map({
+            container: 'map',
+            style: 'mapbox://styles/rodrigomd94/cjwuygdmi0t5y1cqs8lzprzqh', // replace this with your style URL
+            center: [10, 0],
+            zoom: 9
+        });
+        var geojson = {
+            "type": "FeatureCollection",
+            "features": [{
+                "type": "Feature",
+                "geometry": {
+                    "type": "Point",
+                    "coordinates": [0, 0]
+                }
+            }],
+            "properties": {
+                title: "asda",
+                text: "asd"
+            }
+        };
+        var incident_markers=[];
+
+        map.on('load', function () {
+            map.loadImage('https://eventcrew.app/static/assets/img/accident_pin.png', function (error, image) {
+                if (error) throw error;
+                if (!map.hasImage('incident-icon')) map.addImage('incident-icon', image);
+            });
+            map.loadImage('circle.png', function (error, image) {
+                if (error) throw error;
+                if (!map.hasImage('person-icon')) map.addImage('person-icon', image);
+            });
+
+
+            map.addSource("locations", {
+                "type": "geojson",
+                "data": geojson
+            });
+            map.addSource("people", {
+                "type": "geojson",
+                "data": geojson
+            });
+            map.addSource("incidents", {
+                "type": "geojson",
+                "data": geojson
+            });
+            init();
+            setInterval(getIncidents, 3000);
+        })
+
+
+
+
+
+        async function init() {
+            await setMapCenter();
+            await getLocations();
+            await getPeople();
+            await getIncidents();
+            
+        }
+
+        function setMapCenter() {
+            $.getJSON('http://eventcrew.app/live/livedata.cfm/config/1', function (json) {
+                map.setCenter(json.default_centre);
+            })
+        }
+        async function getLocations() {
+            await $.getJSON('https://eventcrew.app/live/livedata.cfm/locations/1', function (json) {
+                // console.log(json);
+                drawLocations(json);
+            });
+        }
+        async function getPeople() {
+            await $.getJSON('https://eventcrew.app/live/livedata.cfm/people/1', function (json) {
+                // console.log(json);
+                drawPeople(json);
+            });
+        }
+        async function getIncidents() {
+            await $.getJSON('https://eventcrew.app/live/livedata.cfm/incidents/1', function (json) {
+                // console.log(json);
+                drawIncidents(json);
+            });
+        }
+
+        function drawLocations(json) {
+            let string = '{"type":"FeatureCollection", "features":' + JSON.stringify(json.locations) + '}';
+            let data = JSON.parse(string);
+            map.getSource('locations').setData(data);
+            map.addLayer({
+                "id": "locations",
+                "source": "locations",
+                "type": "circle",
+                "paint": {
+                    "circle-radius": 8,
+                    "circle-color":"green"
+                }
+            })
+            // // add markers to map
+            // json.locations.forEach(function (marker) {
+
+            //     // // create a HTML element for each feature
+            //     // var el = document.createElement('div');
+            //     // el.className = 'marker';
+
+            //     // make a marker for each feature and add to the map
+            //     new mapboxgl.Marker()
+            //         .setLngLat(marker.geometry.coordinates)
+            //         .addTo(map);
+            // });
+        }
+
+        function drawPeople(json) {
+            let string = '{"type":"FeatureCollection", "features":' + JSON.stringify(json.people) + '}';
+            let data = JSON.parse(string);
+            map.getSource('people').setData(data);
+            map.addLayer({
+                "id": "people",
+                "source": "people",
+                "type": "symbol",
+                "layout": {
+                    "icon-image": "person-icon",
+                    "icon-size": 0.05,
+                    "icon-rotate":180
+                }
+            })
+            map.moveLayer('people', 'locations');
+            // add markers to map
+            // json.people.forEach(function (person) {
+
+            //     // create a HTML element for each feature
+            //     var el = document.createElement('div');
+            //     el.className = 'person';
+
+            //     // make a marker for each feature and add to the map
+            //     new mapboxgl.Marker(el)
+            //         .setLngLat(person.geometry.coordinates)
+            //         .addTo(map);
+            // });
+        }
+
+        function drawIncidents(json) {
+            let string = '{"type":"FeatureCollection", "features":' + JSON.stringify(json.incidents) + '}';
+            let data = JSON.parse(string);
+            console.log(data);
+            try{
+                map.removeLayer('incidents');
+            }catch(error){
+                console.log("asdasd")
+            }
+            map.getSource('incidents').setData(data);
+            map.addLayer({
+                "id": "incidents",
+                "source": "incidents",
+                "type": "symbol",
+                "layout": {
+                    "icon-image": "incident-icon",
+                    "icon-size": 0.5
+                }
+            })
+            map.moveLayer('incidents', 'locations');
+            //add markers to map
+            // if(incident_markers.length >0){
+            //         for (marker of incident_markers){
+            //             marker.remove();
+            //         }
+            //     }
+
+            // json.incidents.forEach(function (marker) {
+            //     // create a HTML element for each feature
+            //     var el = document.createElement('div');
+            //     el.className = 'incident';
+
+            //     // make a marker for each feature and add to the map
+            //     var marker= new mapboxgl.Marker(el)
+            //         .setLngLat(marker.geometry.coordinates)
+            //         .addTo(map);
+            //     incident_markers.push(marker);
+            // });
+        }
+    
+
+    </script>
+</body>
+
+</html>
